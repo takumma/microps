@@ -1,0 +1,8 @@
+version: '1'
+services:
+  microps:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./:/microps
