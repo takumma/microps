@@ -23,7 +23,7 @@ static struct irq_entry *irqs;
 static sigset_t sigmask;
 
 static pthread_t tid;
-static pthresad_barrier_t barrier;
+static pthread_barrier_t barrier;
 
 int intr_request_irq(unsigned int irq, int (*handler)(unsigned int, void *), int flags, const char *name, void *dev)
 {
@@ -68,7 +68,7 @@ static void *intr_thread(void *arg)
     struct irq_entry *entry;
 
     debugf("start...");
-    pthresad_barrier_wait(&barrier);
+    pthread_barrier_wait(&barrier);
     while (!terminate) {
         err = sigwait(&sigmask, &sig);
         if (err) {
@@ -107,7 +107,7 @@ int intr_run(void)
         errorf("pthread_create() %s", strerror(err));
         return -1;
     }
-    pthresad_barrier_wait(&barrier);
+    pthread_barrier_wait(&barrier);
     return 0;
 }
 
