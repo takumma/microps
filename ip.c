@@ -170,7 +170,7 @@ int ip_protocol_register(uint8_t type, void (*handler)(const uint8_t *, size_t, 
         }
     }
 
-    entry = memory_alloc(entry);
+    entry = memory_alloc(sizeof(*entry));
     if (!entry) {
         errorf("memory_alloc() failure");
         return -1;
@@ -210,7 +210,7 @@ static void ip_input(const uint8_t *data, size_t len, struct net_device *dev)
     }
     total = ntoh16(hdr->total);
     if (len < total) {
-        errorf("too short than total");
+        errorf("too short than total, len=%u, total=%u", len, total);
         return;
     }
     if (cksum16((uint16_t *)data, len, 0) != 0) {
@@ -274,9 +274,9 @@ static ssize_t ip_output_core(struct ip_iface *iface, uint8_t protocol, const ui
     hdr->vhl = (IP_VERSION_IPV4 << 4) | (hlen >> 2);
     hdr->tos = 0;
     total = hlen + len;
-    hdr->total = total;
-    hdr->id = id;
-    hdr->offset = offset;
+    hdr->total = hton16(total);
+    hdr->id = hton16(id);
+    hdr->offset = hton16(offset);
     hdr->ttl = 255;
     hdr->protocol= protocol;
     hdr->sum = 0;
