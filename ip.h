@@ -15,7 +15,7 @@
 #define IP_TOTAL_SIZE_MAX UINT16_MAX /* maximum value of uint16 */
 #define IP_PAYLOAD_SIZE_MAX (IP_TOTAL_SIZE_MAX - IP_HDR_SIZE_MIN)
 
-#define IP_ADDR_REN 4
+#define IP_ADDR_LEN 4
 #define IP_ADDR_STR_LEN 16 /* "ddd.ddd.ddd.ddd\0" */
 
 #define IP_PROTOCOL_ICMP  1
