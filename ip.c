@@ -67,7 +67,7 @@ char *ip_addr_ntop(ip_addr_t n, char *p, size_t size)
     uint8_t *u8;
 
     u8 = (uint8_t *)&n;
-    snprintf(p, size, "%d.%d.%d.%d)", u8[0], u8[1], u8[2], u8[3]);
+    snprintf(p, size, "%d.%d.%d.%d", u8[0], u8[1], u8[2], u8[3]);
     return p;
 }
 
