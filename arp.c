@@ -187,7 +187,7 @@ static int arp_request(struct net_iface *iface, ip_addr_t tpa)
     request.hdr.pro = hton16(ARP_PRO_IP);
     request.hdr.hln = ETHER_ADDR_LEN;
     request.hdr.pln = IP_ADDR_LEN;
-    request.hdr.op = hton16(ARP_OP_REPLY);
+    request.hdr.op = hton16(ARP_OP_REQUEST);
     memcpy(request.sha, iface->dev->addr, ETHER_ADDR_LEN);
     memcpy(request.spa, &((struct ip_iface *)iface)->unicast, IP_ADDR_LEN);
     memset(request.tha, 0, ETHER_ADDR_LEN);
@@ -238,6 +238,7 @@ int arp_resolve(struct net_iface *iface, ip_addr_t pa, uint8_t *ha)
 
         cache = arp_cache_alloc();
         if (!cache) {
+            mutex_unlock(&mutex);
             errorf("arp_cache_alloc() failure");
             return ARP_RESOLVE_ERROR;
         }
