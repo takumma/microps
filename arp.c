@@ -274,11 +274,11 @@ static void arp_input(const uint8_t *data, size_t len, struct net_device *dev)
     }
     msg = (struct arp_ether_ip *)data;
 
-    if (msg->hdr.hrd != ARP_HRD_ETHER || msg->hdr.hln != ETHER_ADDR_LEN) {
+    if (ntoh16(msg->hdr.hrd) != ARP_HRD_ETHER || msg->hdr.hln != ETHER_ADDR_LEN) {
         errorf("hardware address is not match Ethernet, hrd=%u, hln=%u", msg->hdr.hrd, msg->hdr.hln);
         return;
     }
-    if (msg->hdr.pro != ARP_PRO_IP || msg->hdr.pln != IP_ADDR_LEN) {
+    if (ntoh16(msg->hdr.pro) != ARP_PRO_IP || msg->hdr.pln != IP_ADDR_LEN) {
         errorf("protocol address is not match IP, pro=%u, pln=%u", msg->hdr.pro, msg->hdr.pln);
         return;
     }
@@ -300,7 +300,7 @@ static void arp_input(const uint8_t *data, size_t len, struct net_device *dev)
             arp_cache_insert(spa, msg->sha);
             mutex_unlock(&mutex);
         }
-        if (msg->hdr.op == ARP_OP_REQUEST) {
+        if (ntoh16(msg->hdr.op) == ARP_OP_REQUEST) {
             arp_reply(iface, msg->tha, spa, msg->sha);
         }
     }
@@ -328,6 +328,7 @@ static void arp_timer_handler(void)
 int arp_init(void)
 {
     struct timeval interval = {1, 0}; /* 1s */
+
     if (net_protocol_register(NET_PROTOCOL_TYPE_ARP, arp_input) == -1) {
         errorf("net_protocol_register() failure");
         return -1;
