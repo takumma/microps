@@ -255,7 +255,7 @@ int ip_iface_register(struct net_device *dev, struct ip_iface *iface)
     iface->next = ifaces;
     ifaces = iface;
     
-    if(ip_route_add(iface->unicast, iface->netmask, IP_ADDR_ANY, iface) == -1) {
+    if(!ip_route_add(iface->unicast & iface->netmask, iface->netmask, IP_ADDR_ANY, iface)) {
         errorf("ip_route_add() failure");
         return -1;
     }
@@ -442,6 +442,11 @@ ssize_t ip_output(uint8_t protocol, const uint8_t *data, size_t len, ip_addr_t s
     route = ip_route_lockup(dst);
     if (!route) {
         errorf("no route to host, addr=%s", ip_addr_ntop(dst, addr, sizeof(addr)));
+        return -1;
+    }
+    iface = route->iface;
+    if (src != IP_ADDR_ANY && src != iface->unicast) {
+        errorf("unable to output with specified source address, addr=%s", ip_addr_ntop(src, addr, sizeof(addr)));
         return -1;
     }
     nexthop = (route->nexthop != IP_ADDR_ANY) ? route->nexthop : dst;
