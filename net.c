@@ -105,6 +105,12 @@ static int net_device_open(struct net_device *dev)
         errorf("already opened, dev=%s", dev->name);
         return -1;
     }
+    if (dev->ops->open) {
+        if (dev->ops->open(dev) == -1) {
+            errorf("failure dev=%s", dev->name);
+            return -1;
+        }
+    }
     dev->flags |= NET_DEVICE_FLAG_UP;
     infof("dev=%s, state=%s", dev->name, NET_DEVICE_STATE(dev));
     return 0;
@@ -151,10 +157,10 @@ struct net_iface *net_device_get_iface(struct net_device *dev, int family)
     struct net_iface *iface;
     for (iface = dev->ifaces; iface; iface = iface->next) {
         if (iface->family == family) {
-            return iface;
+            break;
         }
     }
-    return NULL;
+    return iface;
 }
 
 int net_device_output(struct net_device *dev, uint16_t type, const uint8_t *data, size_t len, const void *dst)
@@ -204,6 +210,7 @@ int net_input_handler(uint16_t type, const uint8_t *data, size_t len, struct net
 {
     struct net_protocol *proto;
     struct net_protocol_queue_entry *entry;
+    
     for (proto = protocols; proto; proto = proto->next) {
         if (proto->type == type) {
             entry = memory_alloc(sizeof(*entry) + len);
@@ -214,7 +221,11 @@ int net_input_handler(uint16_t type, const uint8_t *data, size_t len, struct net
             memcpy(entry->data, data, len);
             entry->len = len;
             entry->dev = dev;
-            queue_push(&proto->queue, entry);
+            if (!queue_push(&proto->queue, entry)) {
+                errorf("queue_push() failure");
+                memory_free(entry);
+                return -1;
+            }
             
             debugf("queue pushed (num:%u), dev=%s, type=0x%04x, len=%zu", proto->queue.num, dev->name, type, len);
             debugdump(data, len);
@@ -238,7 +249,7 @@ int net_softirq_handler(void)
                 break;
             }
             debugf("queue poped (num:%u), dev=%s, type=0x%04x, len=%zu", proto->queue.num, entry->dev->name, proto->type, entry->len);
-            debugdump(entry->data, entry-<len);
+            debugdump(entry->data, entry->len);
             proto->handler(entry->data, entry->len, entry->dev);
             memory_free(entry);
         }
