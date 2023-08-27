@@ -12,6 +12,7 @@
 #include "icmp.h"
 #include "arp.h"
 #include "udp.h"
+#include "tcp.h"
 
 struct net_protocol {
     struct net_protocol *next;
@@ -344,7 +345,11 @@ int net_init(void)
         return -1;
     }
     if (udp_init() == -1) {
-        errorf("arp_init() failure");
+        errorf("udp_init() failure");
+        return -1;
+    }
+    if (tcp_init() == -1) {
+        errorf("tcp_init() failure");
         return -1;
     }
 
