@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <signal.h>
-#include <sys/_pthread/_pthread_cond_t.h>
 
 /*
  * Memory
