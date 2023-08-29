@@ -11,7 +11,7 @@
 
 #include "util.h"
 #include "ip.h"
-#include "tcl.h"
+#include "tcp.h"
 
 #define TCP_FLG_FIN 0x01
 #define TCP_FLG_SYN 0x02
@@ -110,7 +110,7 @@ static void tcp_dump(const uint8_t *data, size_t len)
 {
     struct tcp_hdr *hdr;
     flockfile(stderr);
-    hdr = (struct udp_hdr *)data;
+    hdr = (struct tcp_hdr *)data;
     fprintf(stderr, "        src: %u\n", ntoh16(hdr->src));
     fprintf(stderr, "        dst: %u\n", ntoh16(hdr->dst));
     fprintf(stderr, "        seq: %u\n", ntoh32(hdr->seq));
