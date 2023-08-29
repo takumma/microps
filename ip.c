@@ -333,7 +333,7 @@ static void ip_input(const uint8_t *data, size_t len, struct net_device *dev)
         errorf("too short than total, len=%u, total=%u", len, total);
         return;
     }
-    if (cksum16((uint16_t *)data, len, 0) != 0) {
+    if (cksum16((uint16_t *)hdr, hlen, 0) != 0) {
         errorf("checksum is not zero");
         return;
     }
