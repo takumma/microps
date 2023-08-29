@@ -136,7 +136,10 @@ int icmp_output(uint8_t type, uint8_t code, uint32_t values, const uint8_t *data
 
 int icmp_init(void)
 {
-    ip_protocol_register(IP_PROTOCOL_ICMP, icmp_input);
+    if (ip_protocol_register(IP_PROTOCOL_ICMP, icmp_input) == -1) {
+        errorf("ip_protoco;_register() failure");
+        return -1;
+    }
     return 0;
 }
 

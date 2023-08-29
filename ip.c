@@ -87,7 +87,7 @@ int ip_endpoint_pton(const char *p, struct ip_endpoint *n)
     char addr[IP_ADDR_STR_LEN] = {};
     long int port;
 
-    sep = strchr(p, ':');
+    sep = strrchr(p, ':');
     if (!sep) {
         return -1;
     }
@@ -175,7 +175,7 @@ static struct ip_route *ip_route_add(ip_addr_t network, ip_addr_t netmask, ip_ad
 }
 
 /* NOTE: must not be call after net_run() */
-static struct ip_route *ip_route_lockup(ip_addr_t dst)
+static struct ip_route *ip_route_lookup(ip_addr_t dst)
 {
     struct ip_route *route, *candidate = NULL;
 
@@ -209,7 +209,7 @@ struct ip_iface *ip_route_get_iface(ip_addr_t dst)
 {
     struct ip_route *route;
 
-    route = ip_route_lockup(dst);
+    route = ip_route_lookup(dst);
     if (!route) {
         return NULL;
     }
@@ -232,8 +232,8 @@ struct ip_iface *ip_iface_alloc(const char *unicast, const char *netmask)
         memory_free(iface);
         return NULL;
     }
-    if (ip_addr_pton(unicast, &iface->unicast) == -1) {
-        errorf("ip_addr_pton() unicast failure");
+    if (ip_addr_pton(netmask, &iface->netmask) == -1) {
+        errorf("ip_addr_pton() netmask failure");
         memory_free(iface);
         return NULL;
     }
@@ -272,10 +272,10 @@ struct ip_iface *ip_iface_select(ip_addr_t addr)
     struct ip_iface *iface;
     for (iface = ifaces; iface; iface = iface->next) {
         if (iface->unicast == addr) {
-            return iface;
+            break;;
         }
     }
-    return NULL;
+    return iface;
 }
 
 /* NOTE: must not be call after net_run() */
@@ -358,7 +358,7 @@ static void ip_input(const uint8_t *data, size_t len, struct net_device *dev)
     struct ip_protocol *proto;
     for (proto = protocols; proto; proto = proto->next) {
         if(proto->type == hdr->protocol) {
-            proto->handler((uint8_t *)hdr + hlen, total - hlen, hdr->src, hdr->src, iface);
+            proto->handler((uint8_t *)hdr + hlen, total - hlen, hdr->src, hdr->dst, iface);
             return;
         }
     }
@@ -439,7 +439,7 @@ ssize_t ip_output(uint8_t protocol, const uint8_t *data, size_t len, ip_addr_t s
         errorf("source address is required for broadcast addresses");
         return -1;
     }
-    route = ip_route_lockup(dst);
+    route = ip_route_lookup(dst);
     if (!route) {
         errorf("no route to host, addr=%s", ip_addr_ntop(dst, addr, sizeof(addr)));
         return -1;
