@@ -91,7 +91,7 @@ int main (int argc, char *argv[])
         errorf("udp_open() failure");
         return -1;
     }
-    ip_endpoint_pton("0,0,0,0:7", &local);
+    ip_endpoint_pton("0.0.0.0:7", &local);
     if (udp_bind(soc, &local) == -1) {
         errorf("udp_bind() failure");
         udp_close(soc);
