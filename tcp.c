@@ -278,7 +278,7 @@ static int tcp_retransmit_queue_add(struct tcp_pcb *pcb, uint32_t seq, uint8_t f
 {
     struct tcp_queue_entry *entry;
 
-    entry = memory_alloc(sizeof(*entry) len);
+    entry = memory_alloc(sizeof(*entry));
     if (!entry) {
         errorf("memory_alloc() failure");
         return -1;
