@@ -44,7 +44,7 @@ struct tcp_hdr {
     uint32_t seq;
     uint32_t ack;
     uint8_t off;
-    uint8_t fig;
+    uint8_t flg;
     uint16_t wnd;
     uint16_t sum;
     uint16_t up;
@@ -75,6 +75,8 @@ struct tcp_pcb {
         uint32_t una;
         uint16_t wnd;
         uint16_t up;
+        uint32_t wl1;
+        uint32_t wl2;
     } snd;
     uint32_t iss;
     struct {
@@ -92,17 +94,17 @@ struct tcp_pcb {
 static mutex_t mutex = MUTEX_INITIALIZER;
 static struct tcp_pcb pcbs[TCP_PCB_SIZE];
 
-static char *tcp_fig_ntoa(uint8_t fig)
+static char *tcp_flg_ntoa(uint8_t flg)
 {
   static char str[9];
 
   snprintf(str, sizeof(str), "--%c%c%c%c%c%c",
-      TCP_FLG_ISSET(fig, TCP_FLG_URG) ? 'U' : '-',
-      TCP_FLG_ISSET(fig, TCP_FLG_ACK) ? 'A' : '-',
-      TCP_FLG_ISSET(fig, TCP_FLG_PSH) ? 'P' : '-',
-      TCP_FLG_ISSET(fig, TCP_FLG_RST) ? 'R' : '-',
-      TCP_FLG_ISSET(fig, TCP_FLG_SYN) ? 'S' : '-',
-      TCP_FLG_ISSET(fig, TCP_FLG_FIN) ? 'F' : '-');
+      TCP_FLG_ISSET(flg, TCP_FLG_URG) ? 'U' : '-',
+      TCP_FLG_ISSET(flg, TCP_FLG_ACK) ? 'A' : '-',
+      TCP_FLG_ISSET(flg, TCP_FLG_PSH) ? 'P' : '-',
+      TCP_FLG_ISSET(flg, TCP_FLG_RST) ? 'R' : '-',
+      TCP_FLG_ISSET(flg, TCP_FLG_SYN) ? 'S' : '-',
+      TCP_FLG_ISSET(flg, TCP_FLG_FIN) ? 'F' : '-');
   return str;
 }
 
@@ -116,10 +118,10 @@ static void tcp_dump(const uint8_t *data, size_t len)
     fprintf(stderr, "        seq: %u\n", ntoh32(hdr->seq));
     fprintf(stderr, "        ack: %u\n", ntoh32(hdr->ack));
     fprintf(stderr, "        off: 0x%02x (%d)\n", hdr->off, (hdr->off >> 4) << 2);
-    fprintf(stderr, "        fig: 0x%02x (%s\n", hdr->fig, tcp_fig_ntoa(hdr->fig));
-    fprintf(stderr, "        wnd: %u\n", ntoh16(hdr->dst));
+    fprintf(stderr, "        flg: 0x%02x (%s)\n", hdr->flg, tcp_flg_ntoa(hdr->flg));
+    fprintf(stderr, "        wnd: %u\n", ntoh16(hdr->wnd));
     fprintf(stderr, "        sum: 0x%04x\n", ntoh16(hdr->sum));
-    fprintf(stderr, "         up: %u\n", ntoh16(hdr->dst));
+    fprintf(stderr, "         up: %u\n", ntoh16(hdr->up));
 #ifdef HEXDUMP
     hexdump(stderr, data, len);
 #endif
@@ -205,7 +207,7 @@ static int tcp_pcb_id(struct tcp_pcb *pcb)
     return indexof(pcbs, pcb);
 }
 
-static ssize_t tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t fig, uint16_t wnd, uint8_t *data, size_t len, struct ip_endpoint *local, struct ip_endpoint *foreign)
+static ssize_t tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t flg, uint16_t wnd, uint8_t *data, size_t len, struct ip_endpoint *local, struct ip_endpoint *foreign)
 {
     uint8_t buf[IP_PAYLOAD_SIZE_MAX] = {};
     struct tcp_hdr *hdr;
@@ -222,7 +224,7 @@ static ssize_t tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t fig, uint1
     hdr->seq = hton32(seq);
     hdr->ack = hton32(ack);
     hdr->off = (sizeof(*hdr) >> 2) << 4;
-    hdr->fig = fig;
+    hdr->flg = flg;
     hdr->wnd = hton16(wnd);
     hdr->sum = 0;
     hdr->up = 0;
@@ -236,13 +238,13 @@ static ssize_t tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t fig, uint1
     pseudo.len = hton16(total);
     psum = ~cksum16((uint16_t *)&pseudo, sizeof(pseudo), 0);
 
-    hdr->sum = cksum16((uint16_t *)hdr, len, psum);
+    hdr->sum = cksum16((uint16_t *)hdr, total, psum);
 
     debugf("%s => %s, len=%zu (payload=%zu)",
         ip_endpoint_ntop(local, ep1, sizeof(ep1)),
         ip_endpoint_ntop(foreign, ep2, sizeof(ep2)),
         total, len);
-    tcp_dump((uint8_t *)hdr, len);
+    tcp_dump((uint8_t *)hdr, total);
 
     if (ip_output(IP_PROTOCOL_TCP, (uint8_t *)hdr, total, local->addr, foreign->addr) == -1) {
         return -1;
@@ -251,18 +253,18 @@ static ssize_t tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t fig, uint1
     return len;
 }
 
-static ssize_t tcp_output(struct tcp_pcb *pcb, uint8_t fig, uint8_t *data, size_t len)
+static ssize_t tcp_output(struct tcp_pcb *pcb, uint8_t flg, uint8_t *data, size_t len)
 {
     uint32_t seq;
 
     seq = pcb->snd.nxt;
-    if (TCP_FLG_ISSET(fig, TCP_FLG_SYN)) {
+    if (TCP_FLG_ISSET(flg, TCP_FLG_SYN)) {
         seq = pcb->iss;
     }
-    if(TCP_FLG_ISSET(fig, TCP_FLG_SYN | TCP_FLG_FIN) || len) {
+    if(TCP_FLG_ISSET(flg, TCP_FLG_SYN | TCP_FLG_FIN) || len) {
         /* TODO: add retransmission queue */
     }
-    return tcp_output_segment(seq, pcb->rcv.nxt, fig, pcb->rcv.wnd, data, len, &pcb->local, &pcb->foreign);
+    return tcp_output_segment(seq, pcb->rcv.nxt, flg, pcb->rcv.wnd, data, len, &pcb->local, &pcb->foreign);
 }
 
 /* rfc793 - section 2.0 [Event Processing > SEGMENT ARRIVES] */
@@ -426,7 +428,7 @@ static void tcp_input(const uint8_t *data, size_t len, ip_addr_t src,ip_addr_t d
     pseudo.len = hton16(len);
     psum = ~cksum16((uint16_t *)&pseudo, sizeof(pseudo), 0);
     if (cksum16((uint16_t *)hdr, len, psum) != 0) {
-        errorf("checksum error: sum=0x%04x, verify=0x%04x", ntoh16(cksum16((uint16_t *)hdr, len, -hdr->sum + psum)));
+        errorf("checksum error: sum=0x%04x, verify=0x%04x", ntoh16(hdr->sum), ntoh16(cksum16((uint16_t *)hdr, len, -hdr->sum + psum)));
         return;
     }
     if (src == IP_ADDR_BROADCAST || src == iface->broadcast ||  dst == IP_ADDR_BROADCAST || dst == iface->broadcast) {
@@ -449,16 +451,16 @@ static void tcp_input(const uint8_t *data, size_t len, ip_addr_t src,ip_addr_t d
     seg.seq = ntoh32(hdr->seq);
     seg.ack = ntoh32(hdr->ack);
     seg.len = len - hlen;
-    if (TCP_FLG_ISSET(hdr->fig, TCP_FLG_SYN)) {
+    if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_SYN)) {
         seg.len++; /* SYN flag consumes one sequence number */
     }
-    if (TCP_FLG_ISSET(hdr->fig, TCP_FLG_FIN)) {
+    if (TCP_FLG_ISSET(hdr->flg, TCP_FLG_FIN)) {
         seg.len++; /* FIN flag consumes one sequence number */
     }
     seg.wnd = ntoh16(hdr->wnd);
     seg.up = ntoh16(hdr->up);
     mutex_lock(&mutex);
-    tcp_segment_arrives(&seg, hdr->fig, (uint8_t *)hdr + hlen, len - hlen, &local, &foreign);
+    tcp_segment_arrives(&seg, hdr->flg, (uint8_t *)hdr + hlen, len - hlen, &local, &foreign);
     mutex_unlock(&mutex);
 
     return;
