@@ -282,23 +282,33 @@ int udp_init(void)
 int udp_open(void)
 {
     struct udp_pcb *pcb;
+    int id;
+
+    mutex_lock(&mutex);
     pcb = udp_pcb_alloc();
     if (!pcb) {
         errorf("udp_pcb_alloc() failure");
+        mutex_unlock(&mutex);
         return -1;
     }
-    return udp_pcb_id(pcb);
+    id = udp_pcb_id(pcb);
+    mutex_unlock(&mutex);
+    return id;
 }
 
 int udp_close(int id)
 {
     struct udp_pcb *pcb;
+
+    mutex_lock(&mutex);
     pcb = udp_pcb_get(id);
     if (!pcb) {
         errorf("udp_pcb_get() failure: id=%d", id);
+        mutex_unlock(&mutex);
         return -1;
     }
     udp_pcb_release(pcb);
+    mutex_unlock(&mutex);
     return 0;
 }
 
