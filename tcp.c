@@ -848,6 +848,8 @@ RETRY:
         mutex_unlock(&mutex);
         return -1;
     }
+    mutex_unlock(&mutex);
+    return sent;
 }
 
 ssize_t tcp_receive(int id, uint8_t *buf, size_t size)
